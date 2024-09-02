@@ -1,10 +1,12 @@
+import os
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import DirectoryLoader
 from langchain_community.document_loaders.text import TextLoader 
 from langchain.schema.document import Document
 from get_embedding_function import get_embeddding_function
-import os
+from langchain_community.vectorstores import Chroma
 
+CHROMA_PATH = 'chroma'
 #name of directory where data for rag is stored
 DATA_DIR = "docs"
 #full path to directory where data to be used for rag is stored
@@ -26,7 +28,44 @@ def split_documents(documents:list[Document]) -> list[Document]:
     )
     return text_splitter.split_documents(documents)
 
+def add_to_chroma(chunks:list[Document]):
+    db = Chroma(
+        persist_directory=CHROMA_PATH,
+        embedding_function=get_embeddding_function()
+    )
+    existing_items = db.get(include=[]) #IDs are always included by default
+    existing_ids = set(existing_items["ids"])
+    new_chunks = []
+    print(f"Number of existing documents in DB: {len(existing_ids)}")
+    #get chunks and their ids
+    chunks_with_ids = calculate_chunk_ids(chunks)
+
+    for chunk in chunks_with_ids:
+        if chunk.metadata["id"] not in existing_ids:
+            new_chunks.append(chunk)
+    #if there are new chunks, add them to the database
+    if len(new_chunks):
+        print(f"Adding {len(new_chunks)} new documents")
+        new_chunk_ids = [chunk.metadata["id"] for chunk in new_chunks]
+        db.add_documents(new_chunks, ids=new_chunk_ids)
+    else:
+        print("No new documents to add.")
+
+#function to give each chunk a unique id solely based on which chunk it is
+# i.e. the first chunk will be 0, second will be 1, etc.
+def calculate_chunk_ids(chunks:list[Document]):
+    for index, chunk in enumerate(chunks):
+        source = chunk.metadata['source']
+        chunk_id = f"{source}:{index}"
+        chunk.metadata["id"] = chunk_id
+    return chunks
+
 if __name__ == "__main__":
-    state_of_the_union = load_documents_from_dir(PATH_TO_DATA)
-    texts = split_documents(state_of_the_union)
-    print(texts[0])
+    docs = load_documents_from_dir(PATH_TO_DATA)
+    chunks = split_documents(docs)
+    # for chunk in chunks:
+    #     print(chunk.page_content)
+    add_to_chroma(chunks)
+    print(chunks[0])
+
+    
