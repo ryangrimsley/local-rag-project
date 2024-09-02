@@ -1,4 +1,6 @@
 import os
+import shutil
+import argparse
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import DirectoryLoader
 from langchain_community.document_loaders.text import TextLoader 
@@ -21,8 +23,8 @@ def load_documents_from_dir(path) -> list[Document]:
 #function to split documents recursively and return the list of chunks
 def split_documents(documents:list[Document]) -> list[Document]:
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size = 100,
-        chunk_overlap = 20,
+        chunk_size = 600,
+        chunk_overlap = 60,
         length_function=len,
         is_separator_regex=False,
     )
@@ -60,12 +62,23 @@ def calculate_chunk_ids(chunks:list[Document]):
         chunk.metadata["id"] = chunk_id
     return chunks
 
+def clear_database():
+    if os.path.exists(CHROMA_PATH):
+        shutil.rmtree(CHROMA_PATH)
+
 if __name__ == "__main__":
+
+    # Check if the database should be cleared (using the --clear flag).
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--reset", action="store_true", help="Reset the database.")
+    args = parser.parse_args()
+    if args.reset:
+        print("Clearing Database...")
+        clear_database()
+
     docs = load_documents_from_dir(PATH_TO_DATA)
     chunks = split_documents(docs)
-    # for chunk in chunks:
-    #     print(chunk.page_content)
+
     add_to_chroma(chunks)
-    print(chunks[0])
 
     
