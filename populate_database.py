@@ -50,6 +50,7 @@ def add_to_chroma(chunks:list[Document]):
         print(f"Adding {len(new_chunks)} new documents")
         new_chunk_ids = [chunk.metadata["id"] for chunk in new_chunks]
         db.add_documents(new_chunks, ids=new_chunk_ids)
+        print("Documents Added!")
     else:
         print("No new documents to add.")
 
